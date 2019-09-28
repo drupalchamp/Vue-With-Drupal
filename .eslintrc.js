@@ -31,6 +31,13 @@ module.exports = {
 	//"space-before-blocks": "off",
     //"quotes": "off",
     //"no-extra-semi": "off",
+	"no-console": "off",
+	"no-useless-escape": "off",
+	"eqeqeq": "off",
+	"no-prototype-builtins": "off",
+	"no-use-before-define": "off",
+	"no-undef": "off",
+	"no-unused-vars": "off",
     // allow async-await
     'generator-star-spacing': 'off',
 	'prettier/prettier': 'error',

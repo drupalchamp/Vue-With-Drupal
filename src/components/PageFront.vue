@@ -1,5 +1,6 @@
 <template>
-  <div class="main-content">
+  <div v-if="loading">Loading...</div>
+  <div class="main-content" v-else>
     <div class="container midcontent">
       <div class="row">
         <div id="midcontent_area" class="column content">
@@ -69,7 +70,15 @@
                     ></td>
                     <td
                       className="chart views-field views-field-nothing-1"
-                    ></td>
+                      v-if="stockOptions[index]"
+                    >
+                      <div id="chart" :symbol="item.field_symbol"></div>
+                      <highcharts
+                        :class="'stock'"
+                        :constructor-type="'stockChart'"
+                        :options="stockOptions[index]"
+                      ></highcharts>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -85,35 +94,168 @@
 </template>
 
 <script>
-// import socket from '../assets/js/socket.io.js';
-// import $ from 'jquery';
-// import VueSocketIO from 'vue-socket.io';
-// import ccc_streamer_utilities from '../assets/js/ccc-streamer-utilities.js';
-// import currency_list_stream from '../assets/js/currency_list_stream.js';
+//import socket from '../assets/js/socket.io.js';
+import $ from 'jquery';
+//import VueSocketIO from 'vue-socket.io';
+// import VueSocketIOExt from 'vue-socket.io-extended';
+// import io from 'socket.io-client';
+//import cccStreamerUtilities from '../assets/js/ccc-streamer-utilities.js';
+//import currencyListStream from '../assets/js/currency_list_stream.js';
 import { config } from '../config.js';
 import axios from 'axios';
-// import price_graph from '../assets/js/price_graph.js';
-// var Highcharts = require('highcharts');
+
 export default {
   name: 'PageFront',
   data() {
     return {
-      items: [],
+      loading: true,
       drupalUrl: config.drupalURL,
-      loading: true
+      items: [],
+      chart: null,
+      stockOptions: []
     };
   },
   mounted() {
+    var $this = this;
     axios
       .get('http://cryptocurrentsvue.dd:8083/api/coin-list?_format=json')
       .then(response => {
-        console.log(response.data);
+        console.log('Coin List Response', response.data);
         this.items = response.data;
-        this.loading = false;
+
+        for (var i = 0; i < $this.items.length; i++) {
+          const tsym = 'USD';
+          const fsym = $this.items[i].field_symbol;
+
+          /*// Subscribe websocket & update currency data...
+          var subscription = [];
+          if (fsym) {
+            subscription.push('5~CCCAGG~' + fsym + '~USD');
+            subscription.push('11~' + fsym);
+          }
+
+          var socket = VueSocketIO.connect(
+            'https://streamer.cryptocompare.com/'
+          );
+          socket.emit('SubAdd', { subs: subscription });
+          socket.on('m', function(message) {
+            var messageType = message.substring(0, message.indexOf('~'));
+            if (messageType == CCC.STATIC.TYPE.CURRENTAGG) {
+              dataUnpack(message);
+            } else if (messageType == CCC.STATIC.TYPE.FULLVOLUME) {
+              decorateWithFullVolume(message);
+            }
+          });*/
+
+          axios
+            .get(
+              'https://min-api.cryptocompare.com/data/histoday?fsym=' +
+                fsym +
+                '&tsym=' +
+                tsym +
+                '&limit=50&api_key=' +
+                config.CRYPTOCOMPARE_API_KEY
+            )
+            .then(response => {
+              // console.log('Currency Price Response', response.data);
+
+              var seriesOptions = [];
+              var close = [];
+              var color = '#f5f5f5';
+              var green = '#3d9400';
+              var red = '#A11B0A';
+              var oldVal = 0;
+              var result = response.data;
+              $.each(result.Data, function(kt, vt) {
+                if (oldVal < vt['close']) {
+                  color = green;
+                } else if (oldVal > vt['close']) {
+                  color = red;
+                }
+                oldVal = vt['close'];
+                var time = Number(vt['time']);
+                var value = Number(vt['close']);
+                close[kt] = {
+                  date: time,
+                  y: value,
+                  segmentColor: color
+                };
+              });
+              $.each(close, function(key, value) {
+                seriesOptions[0] = {
+                  // type: 'coloredline',
+                  name: 'Price',
+                  data: close,
+                  visible: true
+                };
+              });
+
+              $this.stockOptions.push({
+                chart: {
+                  width: 175,
+                  height: 36,
+                  spacing: [0, 0, 0, 0],
+                  margin: [0, 0, 0, 0]
+                },
+                title: {
+                  text: null
+                },
+                legend: { enabled: false },
+                credits: { enabled: false },
+                scrollbar: { enabled: false },
+                navigator: { enabled: false },
+                exporting: { enabled: false },
+                rangeSelector: { enabled: false },
+                yAxis: {
+                  labels: {
+                    formatter: function() {}
+                  },
+                  plotLines: [
+                    {
+                      value: 0,
+                      width: 0,
+                      color: 'silver'
+                    }
+                  ]
+                },
+                xAxis: {
+                  lineWidth: 0,
+                  minorGridLineWidth: 0,
+                  lineColor: 'transparent',
+                  gridLineColor: 'transparent',
+                  labels: {
+                    enabled: false
+                  },
+                  minorTickLength: 0,
+                  tickLength: 0,
+                  visible: false,
+                  plotLines: [
+                    {
+                      value: 0,
+                      width: 0,
+                      color: 'silver'
+                    }
+                  ]
+                },
+                plotOptions: {
+                  series: {
+                    lineWidth: 1
+                  }
+                },
+                series: seriesOptions
+              });
+            })
+            .catch(error => {
+              console.log(error);
+            });
+        }
       })
       .catch(error => {
         console.log(error);
       });
+
+    // When all execution done set loading false
+    this.loading = false;
   }
 };
 </script>
